@@ -1,0 +1,14 @@
+{
+  "name": "devops-cicd-demo",
+  "version": "1.0.0",
+  "description": "Sample microservice for GitHub Actions CI/CD, Trivy Scan & Docker Hub pipeline",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "lint": "node --check app.js && node --check server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.1"
+  }
+}
