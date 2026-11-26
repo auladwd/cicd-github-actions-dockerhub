@@ -1,88 +1,117 @@
-# Project 02: End-to-End CI/CD Pipeline (GitHub Actions + Trivy + Docker Hub)
+```markdown
+# Project 02: End-to-End CI/CD & DevSecOps Pipeline (GitHub Actions + Trivy + Docker Hub)
 
-একটি সম্পূর্ণ অটোমেটেড **CI/CD & DevSecOps** পাইপলাইন। GitHub-এ কোড পুশ করলেই অটোমেটিক কোড টেস্ট, **Trivy** দিয়ে Docker ইমেজ সিকিউরিটি স্ক্যান এবং স্ক্যান পাস করলে **Docker Hub**-এ ভার্সন ট্যাগসহ ইমেজ পুশ হয়।
+[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/auladwd)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com/u/auladdevops)
+[![Trivy](https://img.shields.io/badge/Trivy_Security-1904DA?style=for-the-badge&logo=aquasecurity&logoColor=white)](https://aquasecurity.github.io/trivy/)
+[![Node.js](https://img.shields.io/badge/Node.js_20-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+
+An automated **CI/CD & DevSecOps Pipeline** built with **GitHub Actions**, **Trivy**, and **Docker Hub**. Every push or pull request triggers automated code linting and testing, builds a multi-stage Docker image, scans it for `CRITICAL` and `HIGH` vulnerabilities using Trivy, and publishes versioned images (`latest`, commit SHA, and semantic `v*` tags) to Docker Hub only after passing all quality and security gates.
+
+---
 
 ## Pipeline Architecture
 
-```text
-Git Push / Pull Request (main or v* tag)
-   │
-   ▼
-[ Job 1: Test ] ──► Node.js 20 + npm lint + Unit & Integration Tests
-   │ (Pass)
-   ▼
-[ Job 2: Build & Scan ] ──► Docker Build + Trivy Vulnerability Scan (CRITICAL/HIGH)
-   │ (Pass & Push to main/tag)
-   ▼
-[ Job 3: Push to Docker Hub ] ──► Auto-tag (latest, sha-xxxx, v1.0.0) & Push
+```mermaid
+flowchart LR
+    Trigger([Git Push / PR\nmain or v* tag]) --> Job1
+
+    subgraph CI [Continuous Integration]
+        Job1[Job 1: Test\nNode.js 20 • ESLint • Unit & Integration Tests]
+    end
+
+    subgraph DevSecOps [Build & Security Gate]
+        Job2[Job 2: Build & Scan\nDocker Buildx • Trivy CVE Scan CRITICAL/HIGH]
+    end
+
+    subgraph CD [Registry Delivery]
+        Job3[Job 3: Push to Docker Hub\nAuto-Tag: latest, sha-xxxx, v1.0.0]
+    end
+
+    Job1 -->|Pass| Job2
+    Job2 -->|Zero Fixable Critical/High CVEs\n& Push to main / tag| Job3
+
 ```
 
 ---
 
-## ১. লোকাল মেশিনে (WSL Ubuntu) টেস্ট করার নিয়ম
+## Key DevOps & DevSecOps Highlights
 
-১. প্রজেক্টের `app` ফোল্ডারে যান:
+* **Automated Quality Gates:** Runs ESLint static analysis along with unit and integration tests on Node.js 20 prior to containerization.
+* **Shift-Left Container Security (DevSecOps):** Integrates **Aqua Trivy** into the CI workflow to scan built Docker images and fail the pipeline if fixable `HIGH` or `CRITICAL` CVEs are detected.
+* **Multi-Stage Alpine Containerization:** Builds lightweight, non-root production images using Docker Buildx with GitHub Actions layer caching (`type=gha`) for faster build times.
+* **Automated Semantic & SHA Tagging:** Dynamically generates image tags (`latest`, `sha-<commit>`, and semantic version tags like `v1.0.0`) on pushes to `main` or release tags.
+* **PR Validation Safe-Guard:** Executes testing and vulnerability scanning on Pull Requests without pushing unmerged artifacts to the container registry.
+
+---
+
+## Quick Start (Local Testing)
+
+### 1. Clone & Navigate
+
 ```bash
-cd /mnt/e/DevOps/DevOps_Practice/devops-portfolio-projects/02-cicd-github-actions-dockerhub/app
+git clone [https://github.com/auladwd/devops-cicd-pipeline.git](https://github.com/auladwd/devops-cicd-pipeline.git)
+cd devops-cicd-pipeline/app
+
 ```
 
-২. ডিপেন্ডেন্সি ইনস্টল করে লিন্ট ও ইউনিট টেস্ট চালান:
+### 2. Run Linting & Automated Tests
+
 ```bash
 npm install
 npm run lint
 npm test
+
 ```
 
-৩. Docker ইমেজ বিল্ড ও রান করে টেস্ট করুন:
+### 3. Build, Run & Test Locally
+
 ```bash
 docker build -t devops-cicd-demo:local .
 docker run -d -p 3000:3000 --name cicd-test devops-cicd-demo:local
+
 curl http://localhost:3000/health
 curl "http://localhost:3000/api/sum?a=10&b=20"
+
 docker rm -f cicd-test
+
 ```
 
-*(ঐচ্ছিক)* WSL-এ Trivy ইনস্টল থাকলে লোকাল স্ক্যানও চালাতে পারেন:
+### 4. Local Trivy Vulnerability Scan (Optional)
+
 ```bash
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL devops-cicd-demo:local
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  aquasec/trivy image --severity HIGH,CRITICAL devops-cicd-demo:local
+
 ```
 
 ---
 
-## ২. GitHub Actions + Docker Hub সেটআপ গাইড
+## CI/CD Setup & Triggering Releases
 
-> **গুরুত্বপূর্ণ:** GitHub Actions কাজ করার জন্য `.github/workflows/ci-cd.yml` ফাইলটি আপনার GitHub রিপোজিটরির **root** ফোল্ডারে থাকতে হবে। তাই এই `02-cicd-github-actions-dockerhub` ফোল্ডারটিকে আলাদা একটি GitHub রিপোজিটরি হিসেবে পুশ করা সবচেয়ে ভালো।
+### Required Repository Secrets
 
-### ধাপ ক: Docker Hub Access Token তৈরি
-1. Docker Hub-এ লগইন করে **Account Settings → Security (Personal Access Tokens)**-এ যান।
-2. **New Access Token** তৈরি করুন (`Read & Write` পারমিশনসহ) এবং টোকেনটি কপি করে রাখুন।
+Configured under **Settings → Secrets and variables → Actions**:
 
-### ধাপ খ: GitHub Repository Secrets যোগ করা
-1. GitHub-এ আপনার রিপোজিটরির **Settings → Secrets and variables → Actions**-এ যান।
-2. **New repository secret** বাটনে ক্লিক করে নিচের ২টি Secret যোগ করুন:
-   - `DOCKERHUB_USERNAME` → আপনার Docker Hub ইউজারনেম
-   - `DOCKERHUB_TOKEN` → কপি করা Access Token
+* `DOCKERHUB_USERNAME` — Docker Hub account username (`auladdevops`)
+* `DOCKERHUB_TOKEN` — Docker Hub Personal Access Token (`Read & Write` scope)
 
-### ধাপ গ: GitHub-এ Push করা
-```bash
-cd /mnt/e/DevOps/DevOps_Practice/devops-portfolio-projects/02-cicd-github-actions-dockerhub
-git init
-git add .
-git commit -m "feat: add Node.js app with GitHub Actions CI/CD and Trivy scan"
-git branch -M main
-git remote add origin https://github.com/<your-username>/devops-cicd-pipeline.git
-git push -u origin main
-```
-এবার GitHub রিপোজিটরির **Actions** ট্যাবে গিয়ে লাইভ পাইপলাইন রান হতে দেখুন! রিলিজ ট্যাগ টেস্ট করতে চাইলে:
+### Triggering a Semantic Release
+
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
+
 ```
 
 ---
 
-## CV / Resume-তে লেখার জন্য Bullet Points
+## CV / Resume Summary
 
-- *Engineered an automated CI/CD pipeline using GitHub Actions to run automated linting, unit/integration tests, and multi-stage Docker builds.*
-- *Integrated Trivy container vulnerability scanning into the CI pipeline to block images with fixable CRITICAL/HIGH CVEs before registry publishing.*
-- *Automated semantic versioning (`v*`), commit-SHA tagging, and Buildx layer caching to publish production images to Docker Hub.*
+* *Engineered an automated CI/CD pipeline using GitHub Actions to run automated linting, unit/integration tests, and multi-stage Docker builds.*
+* *Integrated Trivy container vulnerability scanning into the CI pipeline to block images with fixable CRITICAL/HIGH CVEs before registry publishing.*
+* *Automated semantic versioning (`v*`), commit-SHA tagging, and Buildx layer caching to publish production images to Docker Hub (`auladdevops`).*
+
+```
+
+```
