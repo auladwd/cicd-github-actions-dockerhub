@@ -1,3 +1,4 @@
+<img width="941" height="872" alt="cicd" src="https://github.com/user-attachments/assets/3e9f6e52-9daa-4de4-8eea-17265b1e4724" />
 ```markdown
 # Project 02: End-to-End CI/CD & DevSecOps Pipeline (GitHub Actions + Trivy + Docker Hub)
 
