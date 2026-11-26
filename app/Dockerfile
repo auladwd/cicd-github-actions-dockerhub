@@ -4,11 +4,14 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev
 
-# Stage 2: Minimal runtime image
+# Stage 2: Minimal hardened runtime image
 FROM node:20-alpine AS runtime
 WORKDIR /app
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Apply OS security patches and remove npm/npx/yarn from runtime (not needed to run node)
+RUN apk upgrade --no-cache && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /opt/yarn* && \
+    addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY package.json app.js server.js ./
